@@ -14,16 +14,18 @@ import pandas as pd
 import re
 from datetime import datetime
 
-# 1. PAGE CONFIG
+import streamlit as st
+import pandas as pd
+import re
+from datetime import datetime
+
 st.set_page_config(page_title="GenieLink DNA Portal", page_icon="🧬", layout="wide")
 
-# 2. SESSION STATE
 if "access_type" not in st.session_state: st.session_state["access_type"] = None
 if "user_name" not in st.session_state: st.session_state["user_name"] = ""
 if 'all_kits' not in st.session_state: st.session_state.all_kits = {}
 if 'match_notes' not in st.session_state: st.session_state.match_notes = {}
 
-# 3. DNA PARSER
 def parse_dna_data(raw_text):
     if not raw_text: return {}
     matches = {}
@@ -40,12 +42,11 @@ def parse_dna_data(raw_text):
                     break
     return matches
 
-# 4. LOGIN SYSTEM
 if st.session_state.access_type is None:
     st.title("🧬 GenieLink DNA Portal")
     n_in = st.text_input("Name:")
     k_in = st.text_input("Key:", type="password").strip()
-    if st.button("Unlock Portal"):
+    if st.button("Unlock"):
         t_codes = st.secrets.get("temporary_codes", [])
         if k_in == "Genie20":
             st.session_state.access_type, st.session_state.user_name = "Founder", n_in
@@ -57,19 +58,17 @@ if st.session_state.access_type is None:
                 if datetime.now().date() <= exp:
                     st.session_state.access_type, st.session_state.user_name = "Temp", n_in
                     st.rerun()
-                else: st.error("Key Expired")
+                else: st.error("Expired")
             else:
                 st.session_state.access_type, st.session_state.user_name = "Guest", n_in
                 st.rerun()
         else: st.error("Invalid Key")
 else:
-    # 5. MAIN INTERFACE
     st.title(f"🧬 Welcome, {st.session_state.user_name}!")
     t1, t2 = st.tabs(["📄 Paste Text", "📊 Upload CSV"])
-    
     with t1:
         num = st.number_input("Number of kits:", 1, 10, 1)
-        with st.form("text_form"):
+        with st.form("tf"):
             inps = []
             for i in range(int(num)):
                 c1, c2 = st.columns([1, 2])
@@ -78,16 +77,10 @@ else:
                 for n, d in inps:
                     if n and d: st.session_state.all_kits[n] = parse_dna_data(d)
                 st.rerun()
-
     with t2:
         up = st.file_uploader("Upload CSVs", accept_multiple_files=True)
         if st.button("Process CSVs"):
             for f in up:
                 try:
                     df = pd.read_csv(f)
-                    df.columns = [str(c).lower().strip() for c in df.columns]
-                    nc = next((c for c in df.columns if c in ['name','match name','person','match']), None)
-                    cc = next((c for c in df.columns if c in ['cm','total cm','shared cm','centimorgans']), None)
-                    if nc and cc:
-                        df = df.dropna(subset=[nc, cc])
-                        df[cc] = pd.to_numeric(df[cc].astype(str).str.replace(' cM',
+                    df.columns = [str(c).lower().strip() for c
