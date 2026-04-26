@@ -7,10 +7,14 @@ from datetime import datetime
 st.set_page_config(page_title="GenieLink DNA Portal", page_icon="🧬", layout="wide")
 
 # 2. SESSION STATE
-if "access_type" not in st.session_state: st.session_state["access_type"] = None
-if "user_name" not in st.session_state: st.session_state["user_name"] = ""
-if 'all_kits' not in st.session_state: st.session_state.all_kits = {}
-if 'match_notes' not in st.session_state: st.session_state.match_notes = {}
+if "access_type" not in st.session_state:
+    st.session_state["access_type"] = None
+if "user_name" not in st.session_state:
+    st.session_state["user_name"] = ""
+if 'all_kits' not in st.session_state:
+    st.session_state.all_kits = {}
+if 'match_notes' not in st.session_state:
+    st.session_state.match_notes = {}
 
 # 3. DNA PARSER
 def parse_dna_data(raw_text):
@@ -51,7 +55,8 @@ if st.session_state.access_type is None:
             else:
                 st.session_state.access_type, st.session_state.user_name = "Guest", n_in
                 st.rerun()
-        else: st.error("Invalid Key")
+        else:
+            st.error("Invalid Key")
 else:
     # 5. HEADER
     st.title(f"🧬 Welcome, {st.session_state.user_name}!")
@@ -92,14 +97,16 @@ else:
 
         kl = list(st.session_state.all_kits.values())
         shared = set(kl[0].keys())
-        for k in kl[1:]: shared.intersection_update(k.keys())
+        for k in kl[1:]:
+            shared.intersection_update(k.keys())
 
         res = []
         for name in shared:
             if all(st.session_state.all_kits[k].get(name, 0) >= min_cm for k in st.session_state.all_kits):
                 if query in name:
                     row = {"Match Name": name.title()}
-                    for k in st.session_state.all_kits: row[k] = st.session_state.all_kits[k][name]
+                    for k in st.session_state.all_kits:
+                        row[k] = st.session_state.all_kits[k][name]
                     row["Research"] = f"https://www.google.com/search?q=\"{name.replace(' ', '+')}\"+genealogy"
                     row["Notes"] = st.session_state.match_notes.get(name, "")
                     res.append(row)
@@ -115,7 +122,8 @@ else:
             for _, r in edited.iterrows():
                 st.session_state.match_notes[r["Match Name"].lower()] = r["Notes"]
             st.download_button("📥 Download CSV Report", edited.to_csv(index=False).encode('utf-8'), "Report.csv")
-        else: st.info("No common matches found.")
+        else:
+            st.info("No common matches found.")
 
     if st.sidebar.button("Reset Everything"):
         st.session_state.all_kits, st.session_state.match_notes = {}, {}
