@@ -79,8 +79,19 @@ else:
                 st.rerun()
     with t2:
         up = st.file_uploader("Upload CSVs", accept_multiple_files=True)
+        if st.button("Process CSVs"): with t2:
+        up = st.file_uploader("Upload CSVs", accept_multiple_files=True)
         if st.button("Process CSVs"):
             for f in up:
                 try:
                     df = pd.read_csv(f)
-                    df.columns = [str(c).lower().strip() for c
+                    df.columns = [str(c).lower().strip() for c in df.columns]
+                    nc = next((c for c in df.columns if c in ['name','match','person']), None)
+                    cc = next((c for c in df.columns if c in ['cm','total']), None)
+                    if nc and cc:
+                        df = df.dropna(subset=[nc, cc])
+                        df[cc] = pd.to_numeric(df[cc].astype(str).str.replace(' cM', ''), errors='coerce')
+                        st.session_state.all_kits[f.name] = dict(zip(df[nc].astype(str).str.lower(), df[cc].dropna()))
+                except: 
+                    st.error(f"Error {f.name}")
+            st.rerun()
