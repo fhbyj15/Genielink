@@ -3,20 +3,21 @@ import pandas as pd
 import re
 from datetime import datetime
 
+import streamlit as st
+import pandas as pd
+import re
+from datetime import datetime
+
 # 1. PAGE CONFIG
 st.set_page_config(page_title="GenieLink DNA Portal", page_icon="🧬", layout="wide")
 
 # 2. SESSION STATE
-if "access_type" not in st.session_state:
-    st.session_state["access_type"] = None
-if "user_name" not in st.session_state:
-    st.session_state["user_name"] = ""
-if 'all_kits' not in st.session_state:
-    st.session_state.all_kits = {}
-if 'match_notes' not in st.session_state:
-    st.session_state.match_notes = {}
+if "access_type" not in st.session_state: st.session_state["access_type"] = None
+if "user_name" not in st.session_state: st.session_state["user_name"] = ""
+if 'all_kits' not in st.session_state: st.session_state.all_kits = {}
+if 'match_notes' not in st.session_state: st.session_state.match_notes = {}
 
-# 3. DNA PARSER
+# 3. DNA TEXT PARSER
 def parse_dna_data(raw_text):
     if not raw_text: return {}
     matches = {}
@@ -55,21 +56,20 @@ if st.session_state.access_type is None:
             else:
                 st.session_state.access_type, st.session_state.user_name = "Guest", n_in
                 st.rerun()
-        else:
-            st.error("Invalid Key")
+        else: st.error("Invalid Key")
 else:
-    # 5. HEADER
+    # 5. MAIN INTERFACE
     st.title(f"🧬 Welcome, {st.session_state.user_name}!")
-    t1, t2 = st.tabs(["📄 Text Input", "📊 CSV Upload"])
+    t1, t2 = st.tabs(["📄 Paste Text", "📊 Upload CSV"])
 
     with t1:
-        num = st.number_input("Kits:", 1, 10, 1)
-        with st.form("tf"):
+        num = st.number_input("Number of kits:", 1, 10, 1)
+        with st.form("text_form"):
             inputs = []
             for i in range(int(num)):
                 c1, c2 = st.columns([1, 2])
-                inputs.append((c1.text_input(f"Name {i+1}", key=f"n{i}"), c2.text_area(f"Data {i+1}", key=f"d{i}")))
-            if st.form_submit_button("Process Text"):
+                inputs.append((c1.text_input(f"Kit {i+1} Name", key=f"n{i}"), c2.text_area(f"Data {i+1}", key=f"d{i}")))
+            if st.form_submit_button("Process Text Kits"):
                 for n, d in inputs:
                     if n and d: st.session_state.all_kits[n] = parse_dna_data(d)
                 st.rerun()
@@ -78,53 +78,8 @@ else:
         up = st.file_uploader("Upload CSVs", accept_multiple_files=True)
         if st.button("Process CSVs"):
             for f in up:
-                df = pd.read_csv(f)
-                df.columns = [c.lower().strip() for c in df.columns]
-                nc = next((c for c in df.columns if c in ['name','match name','person']), None)
-                cc = next((c for c in df.columns if c in ['cm','total cm']), None)
-                if nc and cc:
-                    df = df.dropna(subset=[nc, cc])
-                    st.session_state.all_kits[f.name] = dict(zip(df[nc].astype(str).str.lower(), df[cc]))
-            st.rerun()
-
-    # 6. FILTERS & TRIANGULATION
-    if len(st.session_state.all_kits) >= 2:
-        st.divider()
-        st.header("🔍 Results & Triangulation")
-        col_search, col_cm = st.columns([2, 1])
-        query = col_search.text_input("🔍 Social Search (Filter by Name):").lower()
-        min_cm = col_cm.slider("📏 Min cM Filter:", 0, 100, 7)
-
-        kl = list(st.session_state.all_kits.values())
-        shared = set(kl[0].keys())
-        for k in kl[1:]:
-            shared.intersection_update(k.keys())
-
-        res = []
-        for name in shared:
-            if all(st.session_state.all_kits[k].get(name, 0) >= min_cm for k in st.session_state.all_kits):
-                if query in name:
-                    row = {"Match Name": name.title()}
-                    for k in st.session_state.all_kits:
-                        row[k] = st.session_state.all_kits[k][name]
-                    row["Research"] = f"https://www.google.com/search?q=\"{name.replace(' ', '+')}\"+genealogy"
-                    row["Notes"] = st.session_state.match_notes.get(name, "")
-                    res.append(row)
-
-        if res:
-            df_final = pd.DataFrame(res)
-            edited = st.data_editor(df_final, column_config={
-                "Research": st.column_config.LinkColumn("Research", display_text="🔍"),
-                "Notes": st.column_config.TextColumn("Notes", width="medium"),
-                **{k: st.column_config.NumberColumn(format="%d cM") for k in st.session_state.all_kits.keys()}
-            }, disabled=[c for c in df_final.columns if c != "Notes"], hide_index=True, key="dna_table")
-            
-            for _, r in edited.iterrows():
-                st.session_state.match_notes[r["Match Name"].lower()] = r["Notes"]
-            st.download_button("📥 Download CSV Report", edited.to_csv(index=False).encode('utf-8'), "Report.csv")
-        else:
-            st.info("No common matches found.")
-
-    if st.sidebar.button("Reset Everything"):
-        st.session_state.all_kits, st.session_state.match_notes = {}, {}
-        st.rerun()
+                try:
+                    df = pd.read_csv(f)
+                    df.columns = [str(c).lower().strip() for c in df.columns]
+                    nc = next((c for c in df.columns if c in ['name','match name','full name','person','display name','match']), None)
+                    cc = next((c for c in df.columns if c in ['
