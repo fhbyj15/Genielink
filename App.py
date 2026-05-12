@@ -1,10 +1,10 @@
-  import streamlit as st
+import streamlit as st
 import pandas as pd
 import re
 from datetime import datetime
 
 # =========================================================
-# 1. PAGE SETUP
+# PAGE SETUP
 # =========================================================
 st.set_page_config(
     page_title="GenieLink DNA Portal",
@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# 2. SESSION STATE
+# SESSION STATE
 # =========================================================
 if "access_type" not in st.session_state:
     st.session_state.access_type = None
@@ -28,12 +28,9 @@ if "match_notes" not in st.session_state:
     st.session_state.match_notes = {}
 
 # =========================================================
-# 3. DNA TEXT PARSER
+# DNA TEXT PARSER
 # =========================================================
 def parse_dna_data(raw_text):
-    """
-    Extract names + cM values from pasted DNA match text.
-    """
     if not raw_text:
         return {}
 
@@ -60,9 +57,10 @@ def parse_dna_data(raw_text):
         cm_match = re.search(r"(\d+)\s*cM", line, re.IGNORECASE)
 
         if cm_match:
+
             cm_value = int(cm_match.group(1))
 
-            # Search upward for possible name
+            # Search upward for the name
             for j in range(i - 1, -1, -1):
 
                 possible_name = lines[j]
@@ -77,7 +75,7 @@ def parse_dna_data(raw_text):
     return matches
 
 # =========================================================
-# 4. LOGIN SYSTEM
+# LOGIN SYSTEM
 # =========================================================
 if st.session_state.access_type is None:
 
@@ -90,13 +88,14 @@ if st.session_state.access_type is None:
 
         temp_codes = st.secrets.get("temporary_codes", [])
 
-        # Founder Access
+        # Founder access
         if key_input == "Genie20":
+
             st.session_state.access_type = "Founder"
             st.session_state.user_name = name_input
             st.rerun()
 
-        # Temporary / Guest Access
+        # Temporary access
         elif key_input in temp_codes:
 
             date_match = re.search(r"(\d{4}-\d{2}-\d{2})$", key_input)
@@ -109,13 +108,16 @@ if st.session_state.access_type is None:
                 ).date()
 
                 if datetime.now().date() <= expiry_date:
+
                     st.session_state.access_type = "Temp"
                     st.session_state.user_name = name_input
                     st.rerun()
+
                 else:
                     st.error("❌ Access key expired.")
 
             else:
+
                 st.session_state.access_type = "Guest"
                 st.session_state.user_name = name_input
                 st.rerun()
@@ -126,7 +128,7 @@ if st.session_state.access_type is None:
     st.stop()
 
 # =========================================================
-# 5. MAIN HEADER
+# MAIN APP
 # =========================================================
 st.title(f"🧬 Welcome, {st.session_state.user_name}!")
 
@@ -136,7 +138,7 @@ tab1, tab2 = st.tabs([
 ])
 
 # =========================================================
-# 6. TEXT INPUT TAB
+# TEXT INPUT TAB
 # =========================================================
 with tab1:
 
@@ -177,25 +179,28 @@ with tab1:
 
                 if kit_name and kit_data:
 
-                    parsed = parse_dna_data(kit_data)
+                    parsed_data = parse_dna_data(kit_data)
 
-                    if parsed:
-                        st.session_state.all_kits[kit_name] = parsed
+                    if parsed_data:
+
+                        st.session_state.all_kits[kit_name] = parsed_data
                         added_count += 1
 
             if added_count > 0:
-                st.success(f"✅ Loaded {added_count} text kit(s).")
+
+                st.success(f"✅ Loaded {added_count} kit(s).")
                 st.rerun()
+
             else:
                 st.warning("No valid kits were added.")
 
 # =========================================================
-# 7. CSV UPLOAD TAB
+# CSV UPLOAD TAB
 # =========================================================
 with tab2:
 
     uploaded_files = st.file_uploader(
-        "Upload CSV files",
+        "Upload CSV Files",
         type=["csv"],
         accept_multiple_files=True
     )
@@ -203,6 +208,7 @@ with tab2:
     if st.button("Process CSV Files"):
 
         if not uploaded_files:
+
             st.warning("Please upload at least one CSV file.")
 
         else:
@@ -215,13 +221,13 @@ with tab2:
 
                     df = pd.read_csv(file)
 
-                    # Normalize columns
+                    # Normalize column names
                     df.columns = [
                         str(col).lower().strip()
                         for col in df.columns
                     ]
 
-                    # Find likely name column
+                    # Detect columns
                     name_col = next(
                         (
                             c for c in df.columns
@@ -230,7 +236,6 @@ with tab2:
                         None
                     )
 
-                    # Find likely cM column
                     cm_col = next(
                         (
                             c for c in df.columns
@@ -240,13 +245,16 @@ with tab2:
                     )
 
                     if not name_col or not cm_col:
+
                         st.error(
-                            f"❌ {file.name}: Could not detect required columns."
+                            f"❌ {file.name}: Missing required columns."
                         )
                         continue
 
-                    # Clean rows
-                    clean_df = df.dropna(subset=[name_col, cm_col]).copy()
+                    # Clean dataframe
+                    clean_df = df.dropna(
+                        subset=[name_col, cm_col]
+                    ).copy()
 
                     # Convert cM values
                     clean_df[cm_col] = pd.to_numeric(
@@ -259,7 +267,7 @@ with tab2:
 
                     clean_df = clean_df.dropna(subset=[cm_col])
 
-                    # Save to session
+                    # Store data
                     st.session_state.all_kits[file.name] = dict(
                         zip(
                             clean_df[name_col]
@@ -271,16 +279,20 @@ with tab2:
                     )
 
                     success_count += 1
+
                     st.success(f"✅ Loaded {file.name}")
 
                 except Exception as e:
-                    st.error(f"❌ Failed to read {file.name}: {e}")
+
+                    st.error(
+                        f"❌ Failed to read {file.name}: {e}"
+                    )
 
             if success_count > 0:
                 st.rerun()
 
 # =========================================================
-# 8. TRIANGULATION RESULTS
+# TRIANGULATED MATCH RESULTS
 # =========================================================
 if len(st.session_state.all_kits) >= 2:
 
@@ -301,9 +313,7 @@ if len(st.session_state.all_kits) >= 2:
         value=7
     )
 
-    # -----------------------------------------------------
-    # Find Shared Matches
-    # -----------------------------------------------------
+    # Find shared matches
     kit_values = list(st.session_state.all_kits.values())
 
     shared_matches = set(kit_values[0].keys())
@@ -315,13 +325,12 @@ if len(st.session_state.all_kits) >= 2:
 
     for match_name in shared_matches:
 
-        # Apply filters
-        valid = all(
-            st.session_state.all_kits[k].get(match_name, 0) >= min_cm
-            for k in st.session_state.all_kits
+        valid_match = all(
+            st.session_state.all_kits[kit_name].get(match_name, 0) >= min_cm
+            for kit_name in st.session_state.all_kits
         )
 
-        if valid and search_query in match_name:
+        if valid_match and search_query in match_name:
 
             row = {
                 "Match Name": match_name.title(),
@@ -336,34 +345,38 @@ if len(st.session_state.all_kits) >= 2:
                 )
             }
 
-            # Add kit cM values
+            # Add cM values
             for kit_name in st.session_state.all_kits:
+
                 row[kit_name] = (
                     st.session_state.all_kits[kit_name][match_name]
                 )
 
             results.append(row)
 
-    # -----------------------------------------------------
-    # Display Results
-    # -----------------------------------------------------
+    # Display results
     if results:
 
         results_df = pd.DataFrame(results)
 
         column_config = {
-            "Research": st.column_config.LinkColumn("🔍 Research"),
+            "Research": st.column_config.LinkColumn(
+                "🔍 Research"
+            ),
             "Notes": st.column_config.TextColumn(
                 "Notes",
                 width="large"
             )
         }
 
-        # Add dynamic number columns
+        # Dynamic cM columns
         for kit_name in st.session_state.all_kits.keys():
-            column_config[kit_name] = st.column_config.NumberColumn(
-                kit_name,
-                format="%d cM"
+
+            column_config[kit_name] = (
+                st.column_config.NumberColumn(
+                    kit_name,
+                    format="%d cM"
+                )
             )
 
         edited_df = st.data_editor(
@@ -378,14 +391,14 @@ if len(st.session_state.all_kits) >= 2:
             key="results_editor"
         )
 
-        # Save Notes
+        # Save notes
         for _, row in edited_df.iterrows():
 
             st.session_state.match_notes[
                 row["Match Name"].lower()
             ] = row["Notes"]
 
-        # Export CSV
+        # Download button
         st.download_button(
             label="📥 Export Report",
             data=edited_df.to_csv(index=False).encode("utf-8"),
@@ -394,12 +407,13 @@ if len(st.session_state.all_kits) >= 2:
         )
 
     else:
+
         st.info(
             "No shared matches found at the selected cM threshold."
         )
 
 # =========================================================
-# 9. SIDEBAR ACTIONS
+# SIDEBAR ACTIONS
 # =========================================================
 st.sidebar.header("⚙️ Actions")
 
