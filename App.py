@@ -219,37 +219,23 @@ with tab2:
 
                 try:
 
+                    # Read CSV
                     df = pd.read_csv(file)
+
+                    # Make sure file has at least 2 columns
+                    if len(df.columns) < 2:
+                        st.error(f"❌ {file.name}: Not enough columns.")
+                        continue
 
                     # Normalize column names
                     df.columns = [
-                        str(col).lower().strip()
+                        str(col).strip().lower()
                         for col in df.columns
                     ]
 
-                    # Detect columns
-                    name_col = next(
-                        (
-                            c for c in df.columns
-                            if c in ["name", "match", "person"]
-                        ),
-                        None
-                    )
-
-                    cm_col = next(
-                        (
-                            c for c in df.columns
-                            if c in ["cm", "shared", "total"]
-                        ),
-                        None
-                    )
-
-                    if not name_col or not cm_col:
-
-                        st.error(
-                            f"❌ {file.name}: Missing required columns."
-                        )
-                        continue
+                    # Automatically use first 2 columns
+                    name_col = df.columns[0]
+                    cm_col = df.columns[1]
 
                     # Clean dataframe
                     clean_df = df.dropna(
